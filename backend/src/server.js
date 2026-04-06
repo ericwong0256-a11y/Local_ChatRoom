@@ -5,7 +5,7 @@ import { createServer } from 'node:http'
 import { Server } from 'socket.io'
 
 import authRoutes from './routes/auth.js'
-import chatRoutes from './routes/chat.js'
+import chatRoutes, { canAccessRoom } from './routes/chat.js'
 import adminRoutes from './routes/admin.js'
 import db from './db/index.js'
 import { verifyToken } from './auth.js'
@@ -38,11 +38,13 @@ io.on('connection', (socket) => {
   console.log(`socket connected: ${socket.user.email}`)
 
   socket.on('room:join', (roomId) => {
+    if (!canAccessRoom(roomId, socket.user.id)) return
     socket.join(`room:${roomId}`)
   })
 
   socket.on('message:send', ({ roomId, body }) => {
     if (!body?.trim()) return
+    if (!canAccessRoom(roomId, socket.user.id)) return
     const now = Date.now()
     const info = db
       .prepare(

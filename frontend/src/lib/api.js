@@ -24,7 +24,12 @@ export const api = {
   reset: (token, password) =>
     request('/api/auth/reset', { method: 'POST', body: { token, password } }),
   rooms: () => request('/api/rooms', { auth: true }),
+  contacts: () => request('/api/contacts', { auth: true }),
   messages: (roomId) => request(`/api/rooms/${roomId}/messages`, { auth: true }),
+  members: (roomId) => request(`/api/rooms/${roomId}/members`, { auth: true }),
+  createRoom: (name, member_ids) =>
+    request('/api/rooms', { method: 'POST', body: { name, member_ids }, auth: true }),
+  deleteRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE', auth: true }),
 
   admin: {
     stats: () => request('/api/admin/stats', { auth: true }),
