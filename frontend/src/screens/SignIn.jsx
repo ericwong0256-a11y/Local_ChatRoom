@@ -54,6 +54,7 @@ export default function SignIn({ go }) {
               />
               <button
                 type="button"
+                onClick={() => go('forgot')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-brand-600 font-medium"
               >
                 Forgot password?

@@ -3,29 +3,47 @@ import { api } from '../lib/api.js'
 import { auth } from '../lib/auth.js'
 import { getSocket } from '../lib/socket.js'
 
+const TABS = [
+  { id: 'chats', label: 'Chats' },
+  { id: 'contacts', label: 'Contacts' },
+]
+
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function Chat({ go }) {
   const me = auth.user()
+  const [tab, setTab] = useState('chats')
   const [rooms, setRooms] = useState([])
+  const [contacts, setContacts] = useState([])
   const [activeRoom, setActiveRoom] = useState(null)
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
   const scrollRef = useRef(null)
 
-  // Load rooms once
+  // Load contacts (used by both contacts tab and create-channel modal)
   useEffect(() => {
+    api.contacts().then(setContacts).catch(() => {})
+  }, [])
+
+  const loadRooms = (selectId) => {
     api
       .rooms()
       .then((r) => {
         setRooms(r)
-        if (r[0]) setActiveRoom(r[0].id)
+        if (selectId) setActiveRoom(selectId)
+        else if (!activeRoom && r[0]) setActiveRoom(r[0].id)
       })
       .catch((err) => {
         if (err.message === 'Unauthorized') go('signin')
       })
+  }
+
+  // Load rooms once
+  useEffect(() => {
+    loadRooms()
   }, [])
 
   // Load messages + join room + listen for new messages
@@ -71,6 +89,31 @@ export default function Chat({ go }) {
           <span className="text-white text-xl font-bold">MG_CHAT</span>
         </div>
 
+        <div className="flex border-b border-slate-100">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-2.5 text-sm font-medium ${
+                tab === t.id
+                  ? 'text-brand-600 border-b-2 border-brand-500'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'chats' && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="mx-4 mt-3 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700"
+          >
+            + New Private Channel
+          </button>
+        )}
+
         <div className="px-4 py-3">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
@@ -82,35 +125,90 @@ export default function Chat({ go }) {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {rooms.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setActiveRoom(r.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 border-l-4 ${
-                activeRoom === r.id
-                  ? 'bg-brand-50 border-brand-500'
-                  : 'border-transparent hover:bg-slate-50'
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-lg">
-                👥
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <div className="font-semibold text-slate-800 truncate">{r.name}</div>
-                <div className="text-sm text-slate-500 truncate">Tap to open</div>
-              </div>
-            </button>
-          ))}
+          {tab === 'chats' &&
+            rooms.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setActiveRoom(r.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 border-l-4 ${
+                  activeRoom === r.id
+                    ? 'bg-brand-50 border-brand-500'
+                    : 'border-transparent hover:bg-slate-50'
+                }`}
+              >
+                <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-lg">
+                  {r.is_private ? '🔒' : '👥'}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
+                    {r.name}
+                    {r.is_private ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        private
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-sm text-slate-500 truncate">Tap to open</div>
+                </div>
+              </button>
+            ))}
+
+          {tab === 'contacts' && (
+            <>
+              {contacts.length === 0 && (
+                <p className="text-center text-sm text-slate-400 py-8">No contacts yet.</p>
+              )}
+              {contacts.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 border-l-4 border-transparent"
+                >
+                  <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-base font-semibold text-brand-600">
+                    {c.full_name?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
+                      {c.full_name}
+                      {c.is_admin ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">
+                          admin
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-slate-500 truncate">{c.email}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
-        <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
-          <div className="text-xs text-slate-600 truncate">{me?.full_name}</div>
+        <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium text-slate-700 truncate">{me?.full_name}</div>
+            {me?.is_admin && (
+              <button
+                onClick={() => go('admin')}
+                className="text-xs px-2 py-1 rounded bg-brand-100 text-brand-700 font-medium hover:bg-brand-200"
+              >
+                Admin
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
-            <button onClick={() => go('settings')} className="text-sm text-slate-500 hover:text-slate-700">
-              ⚙️
+            <button
+              onClick={() => go('settings')}
+              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50"
+            >
+              ⚙️ Settings
             </button>
-            <button onClick={() => go('signin')} className="text-sm text-red-500 hover:text-red-600">
-              ⎋
+            <button
+              onClick={() => {
+                if (confirm('Sign out?')) go('signin')
+              }}
+              className="flex-1 px-3 py-1.5 rounded-lg border border-red-200 text-xs text-red-600 hover:bg-red-50 font-medium"
+            >
+              ⎋ Sign Out
             </button>
           </div>
         </div>
@@ -128,6 +226,25 @@ export default function Chat({ go }) {
           </div>
           <button className="text-xl">🔍</button>
           <button className="text-xl">📞</button>
+          {activeRoomObj?.is_private && activeRoomObj?.owner_id === me?.id && (
+            <button
+              title="Delete channel"
+              onClick={async () => {
+                if (!confirm(`Delete channel "${activeRoomObj.name}"? This cannot be undone.`)) return
+                try {
+                  await api.deleteRoom(activeRoomObj.id)
+                  setActiveRoom(null)
+                  setMessages([])
+                  loadRooms()
+                } catch (err) {
+                  alert(err.message)
+                }
+              }}
+              className="text-xl hover:text-red-200"
+            >
+              🗑
+            </button>
+          )}
           <button className="text-xl">⋯</button>
         </header>
 
@@ -176,6 +293,112 @@ export default function Chat({ go }) {
           <button type="button" className="text-2xl">🎙️</button>
         </form>
       </main>
+
+      {showCreate && (
+        <CreateChannelModal
+          contacts={contacts}
+          onClose={() => setShowCreate(false)}
+          onCreated={(room) => {
+            setShowCreate(false)
+            loadRooms(room.id)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function CreateChannelModal({ contacts, onClose, onCreated }) {
+  const [name, setName] = useState('')
+  const [selected, setSelected] = useState(new Set())
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const toggle = (id) => {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelected(next)
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!name.trim()) return setError('Channel name required')
+    setLoading(true)
+    try {
+      const room = await api.createRoom(name.trim(), Array.from(selected))
+      onCreated(room)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-800">New Private Channel</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+        <form onSubmit={submit} className="px-6 py-5 space-y-4">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Channel name"
+            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <div>
+            <div className="text-xs font-medium text-slate-600 mb-2">
+              Invite members ({selected.size} selected)
+            </div>
+            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {contacts.length === 0 && (
+                <p className="text-xs text-slate-400 px-3 py-4 text-center">No contacts.</p>
+              )}
+              {contacts.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(c.id)}
+                    onChange={() => toggle(c.id)}
+                  />
+                  <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-semibold text-brand-600">
+                    {c.full_name?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-800 truncate">{c.full_name}</div>
+                    <div className="text-xs text-slate-500 truncate">{c.email}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-60"
+            >
+              {loading ? 'Creating...' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
