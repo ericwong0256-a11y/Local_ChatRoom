@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import SignIn from './screens/SignIn.jsx'
 import SignUp from './screens/SignUp.jsx'
 import Chat from './screens/Chat.jsx'
 import Settings from './screens/Settings.jsx'
+import Admin from './screens/Admin.jsx'
+import Forgot from './screens/Forgot.jsx'
 import { auth } from './lib/auth.js'
 import { disconnectSocket } from './lib/socket.js'
 
@@ -23,6 +25,8 @@ export default function App() {
       {screen === 'signup' && <SignUp go={go} />}
       {screen === 'chat' && <Chat go={go} />}
       {screen === 'settings' && <Settings go={go} />}
+      {screen === 'admin' && <Admin go={go} />}
+      {screen === 'forgot' && <Forgot go={go} />}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { Server } from 'socket.io'
 
 import authRoutes from './routes/auth.js'
 import chatRoutes from './routes/chat.js'
+import adminRoutes from './routes/admin.js'
 import db from './db/index.js'
 import { verifyToken } from './auth.js'
 
@@ -18,6 +19,7 @@ app.use(express.json())
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.use('/api/auth', authRoutes)
+app.use('/api/admin', adminRoutes)
 app.use('/api', chatRoutes)
 
 const httpServer = createServer(app)

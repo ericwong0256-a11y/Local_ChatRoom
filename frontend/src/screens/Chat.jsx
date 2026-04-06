@@ -106,6 +106,14 @@ export default function Chat({ go }) {
         <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between">
           <div className="text-xs text-slate-600 truncate">{me?.full_name}</div>
           <div className="flex gap-2">
+            {me?.is_admin && (
+              <button
+                onClick={() => go('admin')}
+                className="text-xs px-2 py-1 rounded bg-brand-100 text-brand-700 font-medium hover:bg-brand-200"
+              >
+                Admin
+              </button>
+            )}
             <button onClick={() => go('settings')} className="text-sm text-slate-500 hover:text-slate-700">
               ⚙️
             </button>
