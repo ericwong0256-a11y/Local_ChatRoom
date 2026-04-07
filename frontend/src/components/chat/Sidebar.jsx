@@ -11,6 +11,7 @@ export default function Sidebar({
   contacts,
   activeRoom,
   onSelectRoom,
+  onTogglePin,
   onSelectContact,
   onCreateChannel,
   onShowInvites,
@@ -67,6 +68,7 @@ export default function Sidebar({
             rooms={rooms}
             activeRoom={activeRoom}
             onSelect={onSelectRoom}
+            onTogglePin={onTogglePin}
             unread={unread}
           />
         )}

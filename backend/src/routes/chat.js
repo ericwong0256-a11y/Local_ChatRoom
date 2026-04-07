@@ -47,15 +47,19 @@ router.get('/contacts', (req, res) => {
 
 // List rooms the user can see: public rooms + private rooms where they're a member
 router.get('/rooms', (req, res) => {
+  const me = db.prepare('SELECT full_name FROM users WHERE id = ?').get(req.user.id)
   const rooms = db
     .prepare(
-      `SELECT DISTINCT r.id, r.name, r.is_private, r.is_dm, r.owner_id, r.created_at
+      `SELECT DISTINCT r.id, r.name, r.is_private, r.is_dm, r.owner_id, r.created_at,
+              CASE WHEN p.room_id IS NOT NULL THEN 1 ELSE 0 END AS is_pinned
        FROM rooms r
        LEFT JOIN room_members m ON m.room_id = r.id AND m.user_id = ?
-       WHERE r.is_private = 0 OR m.user_id = ?
+       LEFT JOIN room_pins p ON p.room_id = r.id AND p.user_id = ?
+       WHERE (r.is_private = 0 OR m.user_id = ?)
+         AND NOT (r.is_private = 1 AND r.is_dm = 0 AND r.name = ?)
        ORDER BY r.id`,
     )
-    .all(req.user.id, req.user.id)
+    .all(req.user.id, req.user.id, req.user.id, me?.full_name || '')
 
   // For DM rooms, override `name` with the *other* member's name
   for (const r of rooms) {
@@ -209,6 +213,21 @@ router.get('/rooms/:id/members', (req, res) => {
     )
     .all(roomId)
   res.json(rows)
+})
+
+// Pin / unpin a room for the current user
+router.post('/rooms/:id/pin', (req, res) => {
+  db.prepare(
+    'INSERT OR IGNORE INTO room_pins (user_id, room_id, pinned_at) VALUES (?, ?, ?)',
+  ).run(req.user.id, Number(req.params.id), Date.now())
+  res.json({ ok: true })
+})
+router.delete('/rooms/:id/pin', (req, res) => {
+  db.prepare('DELETE FROM room_pins WHERE user_id = ? AND room_id = ?').run(
+    req.user.id,
+    Number(req.params.id),
+  )
+  res.json({ ok: true })
 })
 
 // Leave a private channel (non-owner)

@@ -16,6 +16,7 @@ import ScreenCaptureModal from '../components/chat/ScreenCaptureModal.jsx'
 import InvitesModal from '../components/chat/InvitesModal.jsx'
 import InviteMoreModal from '../components/chat/InviteMoreModal.jsx'
 import ContactDetailModal from '../components/chat/ContactDetailModal.jsx'
+import ToastStack from '../components/chat/ToastStack.jsx'
 
 export default function Chat({ go }) {
   const me = auth.user()
@@ -24,7 +25,11 @@ export default function Chat({ go }) {
     onUnauthorized: () => go('signin'),
   })
   const { messages, setMessages, members, scrollRef, sendMessage } = useMessages(activeRoom)
-  const { unread } = useNotifications({ activeRoom, meId: me?.id, rooms })
+  const { unread, toasts, dismissToast } = useNotifications({
+    activeRoom,
+    meId: me?.id,
+    rooms,
+  })
 
   const [contacts, setContacts] = useState([])
   const [draft, setDraft] = useState('')
@@ -60,6 +65,16 @@ export default function Chat({ go }) {
     setDraft('')
     setPendingImage(null)
     setPendingAudio(null)
+  }
+
+  const handleTogglePin = async (room) => {
+    try {
+      if (room.is_pinned) await api.unpinRoom(room.id)
+      else await api.pinRoom(room.id)
+      loadRooms()
+    } catch (err) {
+      alert(err.message)
+    }
   }
 
   const handleSelectContact = (contact) => setDetailContact(contact)
@@ -109,6 +124,7 @@ export default function Chat({ go }) {
         contacts={contacts}
         activeRoom={activeRoom}
         onSelectRoom={setActiveRoom}
+        onTogglePin={handleTogglePin}
         onSelectContact={handleSelectContact}
         onCreateChannel={() => setShowCreate(true)}
         onShowInvites={() => setShowInvites(true)}
@@ -168,6 +184,15 @@ export default function Chat({ go }) {
           }}
         />
       )}
+
+      <ToastStack
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onOpen={(t) => {
+          setActiveRoom(t.room_id)
+          dismissToast(t.id)
+        }}
+      />
 
       {detailContact && (
         <ContactDetailModal

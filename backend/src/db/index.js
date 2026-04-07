@@ -45,6 +45,13 @@ db.exec(`
     PRIMARY KEY (room_id, user_id)
   );
 
+  CREATE TABLE IF NOT EXISTS room_pins (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    pinned_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, room_id)
+  );
+
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,

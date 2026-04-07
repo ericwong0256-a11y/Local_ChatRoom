@@ -19,29 +19,13 @@ function playBeep() {
   } catch {}
 }
 
-function showBrowserNotification(msg, roomName) {
-  if (typeof Notification === 'undefined') return
-  if (Notification.permission !== 'granted') return
-  const body = msg.image ? '📷 Image' : msg.audio ? '🎙️ Voice message' : msg.body
-  try {
-    const n = new Notification(`${msg.author} • ${roomName || 'New message'}`, {
-      body,
-      tag: `room-${msg.room_id}`,
-      silent: true,
-    })
-    n.onclick = () => {
-      window.focus()
-      n.close()
-    }
-  } catch {}
-}
-
 /**
- * Tracks unread counts per room and pings the user (sound + browser notification)
- * whenever a message arrives for a room they're not currently viewing.
+ * Tracks unread counts per room and emits in-app toasts (with sound)
+ * for messages received in non-active rooms.
  */
 export function useNotifications({ activeRoom, meId, rooms }) {
-  const [unread, setUnread] = useState({}) // { [roomId]: count }
+  const [unread, setUnread] = useState({})
+  const [toasts, setToasts] = useState([])
   const activeRef = useRef(activeRoom)
   const meRef = useRef(meId)
   const roomsRef = useRef(rooms)
@@ -50,31 +34,34 @@ export function useNotifications({ activeRoom, meId, rooms }) {
   useEffect(() => { meRef.current = meId }, [meId])
   useEffect(() => { roomsRef.current = rooms }, [rooms])
 
-  // Ask for browser permission once
-  useEffect(() => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {})
-    }
-  }, [])
-
-  // Listen to *every* incoming message globally (independent of useMessages)
   useEffect(() => {
     const socket = getSocket()
     const onNew = (msg) => {
-      if (msg.user_id === meRef.current) return // ignore own messages
+      if (msg.user_id === meRef.current) return
       const isActive = msg.room_id === activeRef.current && document.hasFocus()
       if (isActive) return
 
       setUnread((u) => ({ ...u, [msg.room_id]: (u[msg.room_id] || 0) + 1 }))
       playBeep()
+
       const room = roomsRef.current.find((r) => r.id === msg.room_id)
-      showBrowserNotification(msg, room?.name)
+      setToasts((list) => [
+        ...list,
+        {
+          id: `${msg.id}-${Date.now()}`,
+          room_id: msg.room_id,
+          roomName: room?.name || 'New message',
+          author: msg.author,
+          body: msg.body,
+          image: msg.image,
+          audio: msg.audio,
+        },
+      ])
     }
     socket.on('message:new', onNew)
     return () => socket.off('message:new', onNew)
   }, [])
 
-  // Clear unread for the room you just opened
   useEffect(() => {
     if (!activeRoom) return
     setUnread((u) => {
@@ -85,5 +72,7 @@ export function useNotifications({ activeRoom, meId, rooms }) {
     })
   }, [activeRoom])
 
-  return { unread }
+  const dismissToast = (id) => setToasts((list) => list.filter((t) => t.id !== id))
+
+  return { unread, toasts, dismissToast }
 }
