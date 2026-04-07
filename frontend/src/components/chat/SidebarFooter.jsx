@@ -1,6 +1,20 @@
 import Button from '../ui/Button.jsx'
+import { useConfirm } from '../ui/ConfirmProvider.jsx'
 
 export default function SidebarFooter({ me, go }) {
+  const confirm = useConfirm()
+
+  const signOut = async () => {
+    if (await confirm({
+      title: 'Sign out',
+      message: 'Sign out of MG_CHAT?',
+      confirmText: 'Sign Out',
+      danger: true,
+    })) {
+      go('signin')
+    }
+  }
+
   return (
     <div className="border-t border-slate-100 px-4 py-3 space-y-2">
       <div className="flex items-center justify-between">
@@ -15,12 +29,7 @@ export default function SidebarFooter({ me, go }) {
         <Button variant="outline" className="btn-sm" block onClick={() => go('settings')}>
           ⚙️ Settings
         </Button>
-        <Button
-          variant="danger"
-          className="btn-sm"
-          block
-          onClick={() => confirm('Sign out?') && go('signin')}
-        >
+        <Button variant="danger" className="btn-sm" block onClick={signOut}>
           ⎋ Sign Out
         </Button>
       </div>

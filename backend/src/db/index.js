@@ -1,11 +1,15 @@
+import '../loadEnv.js'
 import Database from 'better-sqlite3'
 import bcrypt from 'bcryptjs'
 import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import 'dotenv/config'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const dbPath = process.env.DB_PATH || './data/mgchat.db'
+// Resolve DB_PATH against the backend folder so it doesn't depend on cwd.
+const backendDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const dbPath = resolve(backendDir, process.env.DB_PATH || './data/mgchat.db')
 mkdirSync(dirname(dbPath), { recursive: true })
+console.log(`[db] using ${dbPath}`)
 
 const db = new Database(dbPath)
 db.pragma('journal_mode = WAL')
@@ -51,6 +55,19 @@ db.exec(`
     pinned_at INTEGER NOT NULL,
     PRIMARY KEY (user_id, room_id)
   );
+
+  CREATE TABLE IF NOT EXISTS keywords (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    word TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS message_flags (
+    message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    keyword_id INTEGER NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
+    PRIMARY KEY (message_id, keyword_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_flags_message ON message_flags(message_id);
 
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,13 +115,7 @@ if (!msgCols.some((c) => c.name === 'audio')) {
   db.exec(`ALTER TABLE messages ADD COLUMN audio TEXT`)
 }
 
-// Seed default room
-if (db.prepare('SELECT COUNT(*) AS c FROM rooms').get().c === 0) {
-  db.prepare('INSERT INTO rooms (name, created_at) VALUES (?, ?)').run(
-    'Development Team',
-    Date.now(),
-  )
-}
+// (No default room — users create their own channels.)
 
 // Seed admin user from env
 const adminEmail = process.env.ADMIN_EMAIL

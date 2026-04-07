@@ -5,6 +5,7 @@ import StatsTab from '../components/admin/StatsTab.jsx'
 import UsersTab from '../components/admin/UsersTab.jsx'
 import RoomsTab from '../components/admin/RoomsTab.jsx'
 import MessagesTab from '../components/admin/MessagesTab.jsx'
+import KeywordsTab from '../components/admin/KeywordsTab.jsx'
 
 export default function Admin({ go }) {
   const [tab, setTab] = useState('stats')
@@ -24,6 +25,7 @@ export default function Admin({ go }) {
           {tab === 'users' && <UsersTab />}
           {tab === 'rooms' && <RoomsTab />}
           {tab === 'messages' && <MessagesTab />}
+          {tab === 'keywords' && <KeywordsTab />}
         </div>
       </main>
     </div>

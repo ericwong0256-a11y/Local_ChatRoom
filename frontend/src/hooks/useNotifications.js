@@ -36,7 +36,10 @@ export function useNotifications({ activeRoom, meId, rooms }) {
 
   useEffect(() => {
     const socket = getSocket()
-    const onNew = (msg) => {
+    const seen = new Set()
+    const handle = (msg) => {
+      if (seen.has(msg.id)) return
+      seen.add(msg.id)
       if (msg.user_id === meRef.current) return
       const isActive = msg.room_id === activeRef.current && document.hasFocus()
       if (isActive) return
@@ -58,8 +61,15 @@ export function useNotifications({ activeRoom, meId, rooms }) {
         },
       ])
     }
-    socket.on('message:new', onNew)
-    return () => socket.off('message:new', onNew)
+    // 'message:notify' fires for *all* rooms the user belongs to;
+    // 'message:new' is the active-room broadcast — handle both so we catch
+    // the case where the user is in the room but window is unfocused.
+    socket.on('message:notify', handle)
+    socket.on('message:new', handle)
+    return () => {
+      socket.off('message:notify', handle)
+      socket.off('message:new', handle)
+    }
   }, [])
 
   useEffect(() => {

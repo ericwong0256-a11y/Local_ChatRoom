@@ -3,6 +3,7 @@ const TABS = [
   { id: 'users', label: 'Users' },
   { id: 'rooms', label: 'Channels' },
   { id: 'messages', label: 'Messages' },
+  { id: 'keywords', label: 'Keywords' },
 ]
 
 export default function AdminSidebar({ me, tab, setTab, go }) {

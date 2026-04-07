@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import Input from '../ui/Input.jsx'
 import Button from '../ui/Button.jsx'
+import { useConfirm } from '../ui/ConfirmProvider.jsx'
 import { api } from '../../lib/api.js'
 
 export default function RoomsTab() {
+  const confirm = useConfirm()
   const [rooms, setRooms] = useState([])
   const [name, setName] = useState('')
   const load = () => api.admin.rooms().then(setRooms).catch(() => {})
-  useEffect(load, [])
+  useEffect(() => { load() }, [])
 
   const create = async (e) => {
     e.preventDefault()
@@ -23,7 +25,12 @@ export default function RoomsTab() {
     load()
   }
   const remove = async (r) => {
-    if (!confirm(`Delete channel "${r.name}" and all its messages?`)) return
+    if (!(await confirm({
+      title: 'Delete channel',
+      message: `Delete "${r.name}" and all its messages?`,
+      confirmText: 'Delete',
+      danger: true,
+    }))) return
     await api.admin.deleteRoom(r.id)
     load()
   }

@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react'
 import Badge from '../ui/Badge.jsx'
+import { useConfirm } from '../ui/ConfirmProvider.jsx'
 import { api } from '../../lib/api.js'
 import { auth } from '../../lib/auth.js'
 
 export default function UsersTab() {
+  const confirm = useConfirm()
   const [users, setUsers] = useState([])
   const me = auth.user()
   const load = () => api.admin.users().then(setUsers).catch(() => {})
-  useEffect(load, [])
+  useEffect(() => { load() }, [])
 
   const toggleAdmin = async (u) => {
     await api.admin.setAdmin(u.id, !u.is_admin)
     load()
   }
   const remove = async (u) => {
-    if (!confirm(`Delete user ${u.email}?`)) return
+    if (!(await confirm({
+      title: 'Delete user',
+      message: `Delete ${u.email}? This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    }))) return
     await api.admin.deleteUser(u.id)
     load()
   }

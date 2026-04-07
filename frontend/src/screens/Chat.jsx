@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
 import { auth } from '../lib/auth.js'
+import { useConfirm } from '../components/ui/ConfirmProvider.jsx'
 import { useRooms } from '../hooks/useRooms.js'
 import { useMessages } from '../hooks/useMessages.js'
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
@@ -20,6 +21,7 @@ import ToastStack from '../components/chat/ToastStack.jsx'
 
 export default function Chat({ go }) {
   const me = auth.user()
+  const confirm = useConfirm()
 
   const { rooms, activeRoom, activeRoomObj, setActiveRoom, loadRooms } = useRooms({
     onUnauthorized: () => go('signin'),
@@ -91,7 +93,12 @@ export default function Chat({ go }) {
 
   const handleLeaveRoom = async () => {
     if (!activeRoomObj) return
-    if (!confirm(`Leave "${activeRoomObj.name}"?`)) return
+    if (!(await confirm({
+      title: 'Leave channel',
+      message: `Leave "${activeRoomObj.name}"?`,
+      confirmText: 'Leave',
+      danger: true,
+    }))) return
     try {
       await api.leaveRoom(activeRoomObj.id)
       setShowMembers(false)
@@ -105,7 +112,12 @@ export default function Chat({ go }) {
 
   const handleDeleteRoom = async () => {
     if (!activeRoomObj) return
-    if (!confirm(`Delete channel "${activeRoomObj.name}"? This cannot be undone.`)) return
+    if (!(await confirm({
+      title: 'Delete channel',
+      message: `Delete "${activeRoomObj.name}"? This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    }))) return
     try {
       await api.deleteRoom(activeRoomObj.id)
       setActiveRoom(null)
