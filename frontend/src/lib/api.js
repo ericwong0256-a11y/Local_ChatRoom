@@ -39,6 +39,8 @@ export const api = {
     request(`/api/invites/${roomId}/decline`, { method: 'POST', auth: true }),
   deleteRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE', auth: true }),
   leaveRoom: (id) => request(`/api/rooms/${id}/leave`, { method: 'POST', auth: true }),
+  pinRoom: (id) => request(`/api/rooms/${id}/pin`, { method: 'POST', auth: true }),
+  unpinRoom: (id) => request(`/api/rooms/${id}/pin`, { method: 'DELETE', auth: true }),
   inviteMore: (id, member_ids) =>
     request(`/api/rooms/${id}/invite`, {
       method: 'POST',
