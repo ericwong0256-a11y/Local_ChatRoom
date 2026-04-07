@@ -40,7 +40,9 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    body TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    image TEXT,
+    audio TEXT,
     created_at INTEGER NOT NULL
   );
 
@@ -66,6 +68,15 @@ if (!roomCols.some((c) => c.name === 'is_private')) {
 }
 if (!roomCols.some((c) => c.name === 'owner_id')) {
   db.exec(`ALTER TABLE rooms ADD COLUMN owner_id INTEGER`)
+}
+
+// Add image / audio columns to messages if upgrading
+const msgCols = db.prepare(`PRAGMA table_info(messages)`).all()
+if (!msgCols.some((c) => c.name === 'image')) {
+  db.exec(`ALTER TABLE messages ADD COLUMN image TEXT`)
+}
+if (!msgCols.some((c) => c.name === 'audio')) {
+  db.exec(`ALTER TABLE messages ADD COLUMN audio TEXT`)
 }
 
 // Seed default room

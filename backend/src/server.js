@@ -15,7 +15,7 @@ const ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 
 const app = express()
 app.use(cors({ origin: ORIGIN }))
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.use('/api/auth', authRoutes)
@@ -42,22 +42,29 @@ io.on('connection', (socket) => {
     socket.join(`room:${roomId}`)
   })
 
-  socket.on('message:send', ({ roomId, body }) => {
-    if (!body?.trim()) return
+  socket.on('message:send', ({ roomId, body, image, audio }) => {
+    const text = (body || '').trim()
+    if (!text && !image && !audio) return
     if (!canAccessRoom(roomId, socket.user.id)) return
+    // Size caps (base64 inflates ~33%)
+    if (image && image.length > 2_800_000) return
+    if (audio && audio.length > 7_000_000) return // ~5 MB raw
+
     const now = Date.now()
     const info = db
       .prepare(
-        'INSERT INTO messages (room_id, user_id, body, created_at) VALUES (?, ?, ?, ?)',
+        'INSERT INTO messages (room_id, user_id, body, image, audio, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(roomId, socket.user.id, body.trim(), now)
+      .run(roomId, socket.user.id, text, image || null, audio || null, now)
 
     const message = {
       id: info.lastInsertRowid,
       room_id: roomId,
       user_id: socket.user.id,
       author: socket.user.full_name,
-      body: body.trim(),
+      body: text,
+      image: image || null,
+      audio: audio || null,
       created_at: now,
     }
     io.to(`room:${roomId}`).emit('message:new', message)

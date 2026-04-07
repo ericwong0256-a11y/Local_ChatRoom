@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../lib/api.js'
+import { auth } from '../lib/auth.js'
 
 const tabs = [
   { id: 'account', label: 'Account', icon: '👤' },
@@ -10,6 +12,44 @@ const tabs = [
 export default function Settings({ go }) {
   const [active, setActive] = useState('account')
   const [autoDl, setAutoDl] = useState(true)
+  const [me, setMe] = useState(null)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState('')
+
+  useEffect(() => {
+    api
+      .me()
+      .then((u) => {
+        setMe(u)
+        setName(u.full_name)
+        setEmail(u.email)
+      })
+      .catch(() => go('signin'))
+  }, [])
+
+  const save = async () => {
+    setStatus('')
+    try {
+      const updated = await api.updateMe({ full_name: name, email })
+      setMe(updated)
+      // Refresh cached user (token still valid; only display fields changed)
+      const cached = auth.user() || {}
+      auth.save({ token: auth.token(), user: { ...cached, full_name: updated.full_name, email: updated.email } })
+      setStatus('Saved')
+      setTimeout(() => setStatus(''), 2000)
+    } catch (err) {
+      setStatus(err.message)
+    }
+  }
+
+  if (!me) {
+    return (
+      <div className="auth-bg min-h-full flex items-center justify-center">
+        <p className="text-white">Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="auth-bg min-h-full flex items-center justify-center p-6">
@@ -27,14 +67,22 @@ export default function Settings({ go }) {
 
         {/* Profile */}
         <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-100">
-          <img
-            src="https://i.pravatar.cc/80?img=12"
-            className="w-14 h-14 rounded-full object-cover"
-            alt=""
-          />
-          <div>
-            <div className="font-semibold text-slate-800">John Doe</div>
-            <div className="text-sm text-slate-500">johndoe@example.com</div>
+          <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center text-xl font-bold text-brand-600">
+            {me.full_name?.[0]?.toUpperCase()}
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-slate-800 flex items-center gap-2">
+              {me.full_name}
+              {me.is_admin ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">
+                  admin
+                </span>
+              ) : null}
+            </div>
+            <div className="text-sm text-slate-500">{me.email}</div>
+            <div className="text-xs text-slate-400 mt-0.5">
+              Joined {new Date(me.created_at).toLocaleDateString()}
+            </div>
           </div>
         </div>
 
@@ -56,7 +104,10 @@ export default function Settings({ go }) {
               </button>
             ))}
             <div className="border-t border-slate-100 mt-2 pt-2">
-              <button className="w-full text-left px-5 py-3 flex items-center gap-3 text-sm text-red-500 hover:bg-red-50">
+              <button
+                onClick={() => go('signin')}
+                className="w-full text-left px-5 py-3 flex items-center gap-3 text-sm text-red-500 hover:bg-red-50"
+              >
                 <span>⊖</span> Log Out
               </button>
             </div>
@@ -66,30 +117,35 @@ export default function Settings({ go }) {
           <section className="px-6 py-5 overflow-y-auto">
             <h3 className="font-semibold text-slate-800 mb-3">Account</h3>
             <div className="space-y-3">
-              <input
-                defaultValue="John Doe"
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-              <input
-                defaultValue="@johndoe"
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
+              <label className="block">
+                <span className="text-xs text-slate-500">Full name</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-500">Email</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={save}
+                  className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700"
+                >
+                  Save changes
+                </button>
+                {status && <span className="text-xs text-slate-500">{status}</span>}
+              </div>
             </div>
 
-            <h3 className="font-semibold text-slate-800 mt-5 mb-2">Bio</h3>
-            <textarea
-              placeholder="Write a few words about yourself..."
-              rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-
-            <h3 className="font-semibold text-slate-800 mt-5 mb-2">Change Email</h3>
-            <input
-              defaultValue="johndoe@example.com"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-
-            <h3 className="font-semibold text-slate-800 mt-5 mb-2">Language</h3>
+            <h3 className="font-semibold text-slate-800 mt-6 mb-2">Language</h3>
             <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 text-sm">
               <span>English</span>
               <button className="text-brand-600 font-medium">Browse</button>
