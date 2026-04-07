@@ -18,7 +18,7 @@ export default function SignIn({ go }) {
     try {
       const data = await api.signin({ identifier, password })
       auth.save(data)
-      go('chat')
+      go(data.user?.is_admin ? 'admin' : 'chat')
     } catch (err) {
       setError(err.message)
     } finally {

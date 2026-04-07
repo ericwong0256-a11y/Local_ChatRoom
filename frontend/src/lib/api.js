@@ -62,6 +62,11 @@ export const api = {
     deleteRoom: (id) => request(`/api/admin/rooms/${id}`, { method: 'DELETE', auth: true }),
     roomMessages: (id) => request(`/api/admin/rooms/${id}/messages`, { auth: true }),
     deleteMessage: (id) => request(`/api/admin/messages/${id}`, { method: 'DELETE', auth: true }),
+    keywords: () => request('/api/admin/keywords', { auth: true }),
+    addKeyword: (word) =>
+      request('/api/admin/keywords', { method: 'POST', body: { word }, auth: true }),
+    deleteKeyword: (id) => request(`/api/admin/keywords/${id}`, { method: 'DELETE', auth: true }),
+    flaggedMessages: () => request('/api/admin/flagged-messages', { auth: true }),
   },
 }
 

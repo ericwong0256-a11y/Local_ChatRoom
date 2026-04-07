@@ -1,52 +1,67 @@
 import { useEffect, useState } from 'react'
+import { useConfirm } from '../ui/ConfirmProvider.jsx'
 import { api } from '../../lib/api.js'
 
+// Highlight every occurrence of any keyword in `text` (case-insensitive)
+function HighlightedText({ text, keywords }) {
+  if (!text) return null
+  if (!keywords || keywords.length === 0) return <>{text}</>
+  // Build a single regex from escaped keywords
+  const escaped = keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const re = new RegExp(`(${escaped.join('|')})`, 'gi')
+  const parts = text.split(re)
+  return (
+    <>
+      {parts.map((p, i) =>
+        re.test(p) ? (
+          <mark
+            key={i}
+            className="bg-amber-200 text-amber-900 font-semibold px-0.5 rounded"
+          >
+            {p}
+          </mark>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  )
+}
+
 export default function MessagesTab() {
-  const [rooms, setRooms] = useState([])
-  const [roomId, setRoomId] = useState(null)
+  const confirm = useConfirm()
   const [messages, setMessages] = useState([])
 
-  useEffect(() => {
-    api.admin.rooms().then((r) => {
-      setRooms(r)
-      if (r[0]) setRoomId(r[0].id)
-    })
-  }, [])
-
-  const loadMessages = () => {
-    if (roomId) api.admin.roomMessages(roomId).then(setMessages)
-  }
-  useEffect(loadMessages, [roomId])
+  const load = () => api.admin.flaggedMessages().then(setMessages).catch(() => {})
+  useEffect(() => { load() }, [])
 
   const remove = async (m) => {
-    if (!confirm('Delete this message?')) return
+    if (!(await confirm({
+      title: 'Delete message',
+      message: 'Delete this flagged message?',
+      confirmText: 'Delete',
+      danger: true,
+    }))) return
     await api.admin.deleteMessage(m.id)
-    loadMessages()
+    load()
   }
 
   return (
     <>
-      <div className="mb-4">
-        <select
-          value={roomId || ''}
-          onChange={(e) => setRoomId(Number(e.target.value))}
-          className="input input-sm max-w-xs"
-        >
-          {rooms.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <p className="text-sm text-slate-500 mb-4">
+        Messages flagged by registered keywords. Manage keywords in the{' '}
+        <span className="font-medium text-slate-700">Keywords</span> tab.
+      </p>
 
       <div className="card overflow-hidden">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Author</th>
-              <th>Message</th>
-              <th>Sent</th>
+              <th>Sender</th>
+              <th>Recipient</th>
+              <th>Channel</th>
+              <th>Content</th>
+              <th>Time</th>
               <th className="text-right">Actions</th>
             </tr>
           </thead>
@@ -54,10 +69,28 @@ export default function MessagesTab() {
             {messages.map((m) => (
               <tr key={m.id} className="align-top">
                 <td className="text-slate-800">
-                  <div className="font-medium">{m.author}</div>
-                  <div className="text-xs text-slate-400">{m.email}</div>
+                  <div className="font-medium">{m.sender_name}</div>
+                  <div className="text-xs text-slate-400">{m.sender_email}</div>
                 </td>
-                <td className="text-slate-700 max-w-md break-words">{m.body}</td>
+                <td className="text-slate-800">
+                  <div className="font-medium">{m.recipient_name}</div>
+                  <div className="text-xs text-slate-400">
+                    {m.recipient_kind === 'user'
+                      ? m.is_dm
+                        ? 'Direct message'
+                        : 'Private channel'
+                      : 'Channel'}
+                  </div>
+                </td>
+                <td className="text-slate-700">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{m.is_dm ? '💬' : '🔒'}</span>
+                    <span className="font-medium">{m.room_name}</span>
+                  </span>
+                </td>
+                <td className="text-slate-700 max-w-md break-words">
+                  <HighlightedText text={m.body} keywords={m.matched_words} />
+                </td>
                 <td className="text-slate-500 whitespace-nowrap">
                   {new Date(m.created_at).toLocaleString()}
                 </td>
@@ -68,8 +101,8 @@ export default function MessagesTab() {
             ))}
             {messages.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-center text-slate-400 py-8">
-                  No messages yet.
+                <td colSpan={6} className="text-center text-slate-400 py-8">
+                  No flagged messages yet.
                 </td>
               </tr>
             )}
