@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Base
+   ========================================================================== */
 html, body, #root {
   height: 100%;
 }
@@ -11,6 +14,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ==========================================================================
+   Backgrounds (legacy screen helpers)
+   ========================================================================== */
 .chat-bg {
   background-color: #eaf3fc;
   background-image: radial-gradient(circle at 20% 20%, rgba(59,130,246,0.06) 0, transparent 40%),
@@ -30,4 +36,85 @@ body {
     radial-gradient(circle at 25% 25%, rgba(59,130,246,0.08) 0 1px, transparent 2px),
     radial-gradient(circle at 75% 75%, rgba(59,130,246,0.08) 0 1px, transparent 2px);
   background-size: 28px 28px;
+}
+
+/* ==========================================================================
+   Component classes — change these to restyle the whole app at once
+   ========================================================================== */
+@layer components {
+  /* ---- Buttons ---- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium
+           transition disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none
+           focus:ring-2 focus:ring-brand-500 focus:ring-offset-1;
+  }
+  .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .btn-md { @apply px-4 py-2; }
+  .btn-lg { @apply px-5 py-2.5 text-base; }
+  .btn-block { @apply w-full; }
+
+  .btn-primary { @apply btn btn-md bg-brand-600 text-white hover:bg-brand-700; }
+  .btn-outline { @apply btn btn-md border border-slate-200 text-slate-600 hover:bg-slate-50; }
+  .btn-ghost { @apply btn btn-md text-slate-600 hover:bg-slate-100; }
+  .btn-danger { @apply btn btn-md border border-red-300 text-red-600 hover:bg-red-50; }
+  .btn-danger-solid { @apply btn btn-md bg-red-500 text-white hover:bg-red-600; }
+
+  /* ---- Inputs ---- */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-500;
+  }
+  .input-sm { @apply px-3 py-2; }
+  .label { @apply text-xs text-slate-500 font-medium; }
+  .field-error { @apply text-xs text-red-500; }
+
+  /* ---- Surfaces ---- */
+  .card { @apply bg-white rounded-xl shadow-sm border border-slate-100; }
+  .card-lg { @apply bg-white rounded-2xl shadow-xl; }
+
+  /* ---- Modals ---- */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4;
+  }
+  .modal-panel {
+    @apply bg-white rounded-2xl shadow-2xl w-full overflow-hidden;
+  }
+  .modal-header {
+    @apply px-6 py-4 border-b border-slate-100 flex items-center justify-between;
+  }
+  .modal-title { @apply font-semibold text-slate-800; }
+  .modal-close { @apply text-slate-400 hover:text-slate-600; }
+  .modal-body { @apply px-6 py-5; }
+  .modal-footer { @apply px-6 py-3 flex justify-end gap-2 bg-slate-50; }
+
+  /* ---- Badges ---- */
+  .badge { @apply text-[10px] px-1.5 py-0.5 rounded font-medium; }
+  .badge-brand { @apply badge bg-brand-100 text-brand-700; }
+  .badge-slate { @apply badge bg-slate-100 text-slate-600; }
+
+  /* ---- Tables ---- */
+  .data-table { @apply w-full text-sm; }
+  .data-table thead { @apply bg-slate-50 text-slate-600; }
+  .data-table th { @apply text-left px-5 py-3 font-medium; }
+  .data-table td { @apply px-5 py-3 border-t border-slate-100; }
+
+  /* ---- Auth shell ---- */
+  .auth-screen {
+    @apply auth-bg min-h-full flex items-center justify-center p-6;
+  }
+  .auth-card {
+    @apply w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden;
+  }
+  .auth-header {
+    @apply bg-brand-600 py-5 flex items-center justify-center;
+  }
+  .auth-body { @apply pattern-card px-7 py-8; }
+  .auth-title {
+    @apply text-xl font-semibold text-slate-800 text-center mb-6;
+  }
+  .auth-footer-link { @apply text-brand-600 font-medium; }
+
+  /* ---- Link text ---- */
+  .link { @apply text-brand-600 hover:underline; }
+  .link-danger { @apply text-red-500 hover:underline; }
 }
