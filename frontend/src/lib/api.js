@@ -31,6 +31,7 @@ export const api = {
   members: (roomId) => request(`/api/rooms/${roomId}/members`, { auth: true }),
   createRoom: (name, member_ids) =>
     request('/api/rooms', { method: 'POST', body: { name, member_ids }, auth: true }),
+  openDm: (userId) => request(`/api/dm/${userId}`, { method: 'POST', auth: true }),
   deleteRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE', auth: true }),
 
   admin: {

@@ -59,6 +59,46 @@ router.get('/rooms', (req, res) => {
   res.json(rooms)
 })
 
+// Find or create a 1-on-1 DM room with another user
+router.post('/dm/:userId', (req, res) => {
+  const otherId = Number(req.params.userId)
+  if (otherId === req.user.id) return res.status(400).json({ error: 'Cannot DM yourself' })
+  const other = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(otherId)
+  if (!other) return res.status(404).json({ error: 'User not found' })
+
+  // Look for an existing 2-person private room shared by both users
+  const existing = db
+    .prepare(
+      `SELECT r.id, r.name, r.is_private, r.owner_id, r.created_at
+       FROM rooms r
+       JOIN room_members a ON a.room_id = r.id AND a.user_id = ?
+       JOIN room_members b ON b.room_id = r.id AND b.user_id = ?
+       WHERE r.is_private = 1
+         AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id) = 2
+       LIMIT 1`,
+    )
+    .get(req.user.id, otherId)
+  if (existing) return res.json(existing)
+
+  const now = Date.now()
+  const info = db
+    .prepare('INSERT INTO rooms (name, is_private, owner_id, created_at) VALUES (?, 1, ?, ?)')
+    .run(other.full_name, req.user.id, now)
+  const roomId = info.lastInsertRowid
+  const addMember = db.prepare(
+    'INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)',
+  )
+  addMember.run(roomId, req.user.id)
+  addMember.run(roomId, otherId)
+  res.json({
+    id: roomId,
+    name: other.full_name,
+    is_private: 1,
+    owner_id: req.user.id,
+    created_at: now,
+  })
+})
+
 // Create a private channel and invite members
 router.post('/rooms', (req, res) => {
   const { name, member_ids = [] } = req.body || {}

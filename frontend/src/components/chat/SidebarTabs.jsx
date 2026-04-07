@@ -10,11 +10,7 @@ export default function SidebarTabs({ tab, setTab }) {
         <button
           key={t.id}
           onClick={() => setTab(t.id)}
-          className={`flex-1 py-2.5 text-sm font-medium ${
-            tab === t.id
-              ? 'text-brand-600 border-b-2 border-brand-500'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
+          className={`sidebar-tab ${tab === t.id ? 'sidebar-tab-active' : ''}`}
         >
           {t.label}
         </button>

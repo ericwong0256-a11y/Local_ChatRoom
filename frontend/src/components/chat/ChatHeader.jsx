@@ -1,7 +1,7 @@
 export default function ChatHeader({ room, members, isOwner, onShowMembers, onDelete }) {
   return (
-    <header className="bg-brand-600 px-6 py-3 flex items-center gap-4 text-white">
-      <button className="text-xl">←</button>
+    <header className="chat-header">
+      <button className="chat-header-icon">←</button>
       <div className="flex-1">
         <div className="font-semibold text-lg leading-tight">
           {room?.name || 'Select a room'}
@@ -17,17 +17,17 @@ export default function ChatHeader({ room, members, isOwner, onShowMembers, onDe
             : 'public channel'}
         </button>
       </div>
-      <button className="text-xl">🔍</button>
+      <button className="chat-header-icon">🔍</button>
       {room?.is_private && isOwner && (
         <button
           title="Delete channel"
           onClick={onDelete}
-          className="text-xl hover:text-red-200"
+          className="chat-header-icon hover:text-red-200"
         >
           🗑
         </button>
       )}
-      <button className="text-xl">⋯</button>
+      <button className="chat-header-icon">⋯</button>
     </header>
   )
 }

@@ -48,6 +48,15 @@ export default function Chat({ go }) {
     setPendingAudio(null)
   }
 
+  const handleSelectContact = async (contact) => {
+    try {
+      const room = await api.openDm(contact.id)
+      loadRooms(room.id)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleDeleteRoom = async () => {
     if (!activeRoomObj) return
     if (!confirm(`Delete channel "${activeRoomObj.name}"? This cannot be undone.`)) return
@@ -62,18 +71,19 @@ export default function Chat({ go }) {
   }
 
   return (
-    <div className="h-full flex">
+    <div className="chat-shell">
       <Sidebar
         me={me}
         rooms={rooms}
         contacts={contacts}
         activeRoom={activeRoom}
         onSelectRoom={setActiveRoom}
+        onSelectContact={handleSelectContact}
         onCreateChannel={() => setShowCreate(true)}
         go={go}
       />
 
-      <main className="flex-1 flex flex-col chat-bg">
+      <main className="chat-main">
         <ChatHeader
           room={activeRoomObj}
           members={members}
