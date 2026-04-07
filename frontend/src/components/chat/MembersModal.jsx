@@ -1,9 +1,36 @@
 import Modal from '../ui/Modal.jsx'
 import Badge from '../ui/Badge.jsx'
+import Button from '../ui/Button.jsx'
 
-export default function MembersModal({ room, members, ownerId, onClose }) {
+export default function MembersModal({
+  room,
+  members,
+  ownerId,
+  meId,
+  onClose,
+  onLeave,
+  onInviteMore,
+}) {
+  const isOwner = ownerId === meId
+  const isDm = !!room?.is_dm
+
   return (
-    <Modal title={`${room?.name} — Members`} size="sm" onClose={onClose}>
+    <Modal
+      title={`${room?.name} — Members`}
+      size="sm"
+      onClose={onClose}
+      footer={
+        !isDm && (
+          <>
+            {isOwner ? (
+              <Button onClick={onInviteMore}>+ Invite</Button>
+            ) : (
+              <Button variant="danger" onClick={onLeave}>Leave channel</Button>
+            )}
+          </>
+        )
+      }
+    >
       <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100 -mx-6">
         {members.map((m) => (
           <li key={m.id} className="px-5 py-3 flex items-center gap-3">

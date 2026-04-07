@@ -13,6 +13,9 @@ export default function Sidebar({
   onSelectRoom,
   onSelectContact,
   onCreateChannel,
+  onShowInvites,
+  inviteCount = 0,
+  unread,
   go,
 }) {
   const [tab, setTab] = useState('chats')
@@ -31,9 +34,24 @@ export default function Sidebar({
       <SidebarTabs tab={tab} setTab={setTab} />
 
       {tab === 'chats' && (
-        <Button block className="mx-4 mt-3" onClick={onCreateChannel}>
-          + New Private Channel
-        </Button>
+        <div className="mx-4 mt-3 flex gap-2">
+          <Button block onClick={onCreateChannel}>
+            + New Private Channel
+          </Button>
+          <button
+            type="button"
+            onClick={onShowInvites}
+            title="Pending invites"
+            className="relative px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm"
+          >
+            ✉️
+            {inviteCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center font-semibold">
+                {inviteCount}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       <div className="sidebar-search-wrap">
@@ -45,7 +63,12 @@ export default function Sidebar({
 
       <div className="flex-1 overflow-y-auto">
         {tab === 'chats' && (
-          <RoomList rooms={rooms} activeRoom={activeRoom} onSelect={onSelectRoom} />
+          <RoomList
+            rooms={rooms}
+            activeRoom={activeRoom}
+            onSelect={onSelectRoom}
+            unread={unread}
+          />
         )}
         {tab === 'contacts' && <ContactList contacts={contacts} onSelect={onSelectContact} />}
       </div>

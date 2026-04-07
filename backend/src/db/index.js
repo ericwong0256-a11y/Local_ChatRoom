@@ -26,6 +26,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     is_private INTEGER NOT NULL DEFAULT 0,
+    is_dm INTEGER NOT NULL DEFAULT 0,
     owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at INTEGER NOT NULL
   );
@@ -33,6 +34,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS room_members (
     room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (room_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS room_invites (
+    room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    inviter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at INTEGER NOT NULL,
     PRIMARY KEY (room_id, user_id)
   );
 
@@ -68,6 +77,9 @@ if (!roomCols.some((c) => c.name === 'is_private')) {
 }
 if (!roomCols.some((c) => c.name === 'owner_id')) {
   db.exec(`ALTER TABLE rooms ADD COLUMN owner_id INTEGER`)
+}
+if (!roomCols.some((c) => c.name === 'is_dm')) {
+  db.exec(`ALTER TABLE rooms ADD COLUMN is_dm INTEGER NOT NULL DEFAULT 0`)
 }
 
 // Add image / audio columns to messages if upgrading

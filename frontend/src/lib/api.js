@@ -32,7 +32,19 @@ export const api = {
   createRoom: (name, member_ids) =>
     request('/api/rooms', { method: 'POST', body: { name, member_ids }, auth: true }),
   openDm: (userId) => request(`/api/dm/${userId}`, { method: 'POST', auth: true }),
+  invites: () => request('/api/invites', { auth: true }),
+  acceptInvite: (roomId) =>
+    request(`/api/invites/${roomId}/accept`, { method: 'POST', auth: true }),
+  declineInvite: (roomId) =>
+    request(`/api/invites/${roomId}/decline`, { method: 'POST', auth: true }),
   deleteRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE', auth: true }),
+  leaveRoom: (id) => request(`/api/rooms/${id}/leave`, { method: 'POST', auth: true }),
+  inviteMore: (id, member_ids) =>
+    request(`/api/rooms/${id}/invite`, {
+      method: 'POST',
+      body: { member_ids },
+      auth: true,
+    }),
 
   admin: {
     stats: () => request('/api/admin/stats', { auth: true }),

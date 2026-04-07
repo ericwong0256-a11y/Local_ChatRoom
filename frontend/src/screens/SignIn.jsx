@@ -6,7 +6,7 @@ import { api } from '../lib/api.js'
 import { auth } from '../lib/auth.js'
 
 export default function SignIn({ go }) {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,7 +16,7 @@ export default function SignIn({ go }) {
     setError('')
     setLoading(true)
     try {
-      const data = await api.signin({ email, password })
+      const data = await api.signin({ identifier, password })
       auth.save(data)
       go('chat')
     } catch (err) {
@@ -40,11 +40,10 @@ export default function SignIn({ go }) {
     >
       <form className="space-y-3" onSubmit={submit}>
         <Input
-          type="email"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="Email or username"
         />
         <div className="relative">
           <Input

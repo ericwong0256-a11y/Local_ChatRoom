@@ -49,13 +49,27 @@ router.get('/contacts', (req, res) => {
 router.get('/rooms', (req, res) => {
   const rooms = db
     .prepare(
-      `SELECT DISTINCT r.id, r.name, r.is_private, r.owner_id, r.created_at
+      `SELECT DISTINCT r.id, r.name, r.is_private, r.is_dm, r.owner_id, r.created_at
        FROM rooms r
        LEFT JOIN room_members m ON m.room_id = r.id AND m.user_id = ?
        WHERE r.is_private = 0 OR m.user_id = ?
        ORDER BY r.id`,
     )
     .all(req.user.id, req.user.id)
+
+  // For DM rooms, override `name` with the *other* member's name
+  for (const r of rooms) {
+    if (r.is_dm) {
+      const other = db
+        .prepare(
+          `SELECT u.full_name FROM room_members m
+           JOIN users u ON u.id = m.user_id
+           WHERE m.room_id = ? AND m.user_id != ?`,
+        )
+        .get(r.id, req.user.id)
+      if (other) r.name = other.full_name
+    }
+  }
   res.json(rooms)
 })
 
@@ -66,23 +80,27 @@ router.post('/dm/:userId', (req, res) => {
   const other = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(otherId)
   if (!other) return res.status(404).json({ error: 'User not found' })
 
-  // Look for an existing 2-person private room shared by both users
+  // Look for an existing DM room between exactly these two users
   const existing = db
     .prepare(
-      `SELECT r.id, r.name, r.is_private, r.owner_id, r.created_at
+      `SELECT r.id, r.name, r.is_private, r.is_dm, r.owner_id, r.created_at
        FROM rooms r
        JOIN room_members a ON a.room_id = r.id AND a.user_id = ?
        JOIN room_members b ON b.room_id = r.id AND b.user_id = ?
-       WHERE r.is_private = 1
-         AND (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id) = 2
+       WHERE r.is_dm = 1
        LIMIT 1`,
     )
     .get(req.user.id, otherId)
-  if (existing) return res.json(existing)
+  if (existing) {
+    existing.name = other.full_name
+    return res.json(existing)
+  }
 
   const now = Date.now()
   const info = db
-    .prepare('INSERT INTO rooms (name, is_private, owner_id, created_at) VALUES (?, 1, ?, ?)')
+    .prepare(
+      'INSERT INTO rooms (name, is_private, is_dm, owner_id, created_at) VALUES (?, 1, 1, ?, ?)',
+    )
     .run(other.full_name, req.user.id, now)
   const roomId = info.lastInsertRowid
   const addMember = db.prepare(
@@ -94,12 +112,13 @@ router.post('/dm/:userId', (req, res) => {
     id: roomId,
     name: other.full_name,
     is_private: 1,
+    is_dm: 1,
     owner_id: req.user.id,
     created_at: now,
   })
 })
 
-// Create a private channel and invite members
+// Create a private channel and send invites to members
 router.post('/rooms', (req, res) => {
   const { name, member_ids = [] } = req.body || {}
   if (!name?.trim()) return res.status(400).json({ error: 'Name required' })
@@ -112,15 +131,67 @@ router.post('/rooms', (req, res) => {
     .run(name.trim(), req.user.id, now)
   const roomId = info.lastInsertRowid
 
-  const addMember = db.prepare(
-    'INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)',
+  // Owner joins immediately
+  db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(
+    roomId,
+    req.user.id,
   )
-  addMember.run(roomId, req.user.id)
+  // Others get an invite
+  const invite = db.prepare(
+    'INSERT OR IGNORE INTO room_invites (room_id, user_id, inviter_id, created_at) VALUES (?, ?, ?, ?)',
+  )
   for (const uid of member_ids) {
-    if (Number.isInteger(uid) && uid !== req.user.id) addMember.run(roomId, uid)
+    if (Number.isInteger(uid) && uid !== req.user.id) invite.run(roomId, uid, req.user.id, now)
   }
 
-  res.json({ id: roomId, name: name.trim(), is_private: 1, owner_id: req.user.id, created_at: now })
+  res.json({
+    id: roomId,
+    name: name.trim(),
+    is_private: 1,
+    owner_id: req.user.id,
+    created_at: now,
+  })
+})
+
+// List my pending invites
+router.get('/invites', (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT r.id AS room_id, r.name AS room_name, i.created_at,
+              u.full_name AS inviter_name
+       FROM room_invites i
+       JOIN rooms r ON r.id = i.room_id
+       LEFT JOIN users u ON u.id = i.inviter_id
+       WHERE i.user_id = ?
+       ORDER BY i.created_at DESC`,
+    )
+    .all(req.user.id)
+  res.json(rows)
+})
+
+router.post('/invites/:roomId/accept', (req, res) => {
+  const roomId = Number(req.params.roomId)
+  const row = db
+    .prepare('SELECT 1 FROM room_invites WHERE room_id = ? AND user_id = ?')
+    .get(roomId, req.user.id)
+  if (!row) return res.status(404).json({ error: 'No invite' })
+  db.prepare('INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)').run(
+    roomId,
+    req.user.id,
+  )
+  db.prepare('DELETE FROM room_invites WHERE room_id = ? AND user_id = ?').run(
+    roomId,
+    req.user.id,
+  )
+  res.json({ ok: true, room_id: roomId })
+})
+
+router.post('/invites/:roomId/decline', (req, res) => {
+  db.prepare('DELETE FROM room_invites WHERE room_id = ? AND user_id = ?').run(
+    Number(req.params.roomId),
+    req.user.id,
+  )
+  res.json({ ok: true })
 })
 
 // Members of a room
@@ -138,6 +209,48 @@ router.get('/rooms/:id/members', (req, res) => {
     )
     .all(roomId)
   res.json(rows)
+})
+
+// Leave a private channel (non-owner)
+router.post('/rooms/:id/leave', (req, res) => {
+  const roomId = Number(req.params.id)
+  const room = db.prepare('SELECT owner_id, is_private FROM rooms WHERE id = ?').get(roomId)
+  if (!room) return res.status(404).json({ error: 'Not found' })
+  if (!room.is_private) return res.status(400).json({ error: 'Cannot leave public channel' })
+  if (room.owner_id === req.user.id) {
+    return res.status(400).json({ error: 'Owner must delete the channel instead' })
+  }
+  db.prepare('DELETE FROM room_members WHERE room_id = ? AND user_id = ?').run(
+    roomId,
+    req.user.id,
+  )
+  res.json({ ok: true })
+})
+
+// Owner invites more users to an existing private channel
+router.post('/rooms/:id/invite', (req, res) => {
+  const roomId = Number(req.params.id)
+  const { member_ids = [] } = req.body || {}
+  const room = db.prepare('SELECT owner_id, is_private FROM rooms WHERE id = ?').get(roomId)
+  if (!room) return res.status(404).json({ error: 'Not found' })
+  if (!room.is_private) return res.status(400).json({ error: 'Public channel' })
+  if (room.owner_id !== req.user.id) return res.status(403).json({ error: 'Owner only' })
+
+  const now = Date.now()
+  const isMember = db.prepare(
+    'SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?',
+  )
+  const invite = db.prepare(
+    'INSERT OR IGNORE INTO room_invites (room_id, user_id, inviter_id, created_at) VALUES (?, ?, ?, ?)',
+  )
+  let added = 0
+  for (const uid of member_ids) {
+    if (!Number.isInteger(uid) || uid === req.user.id) continue
+    if (isMember.get(roomId, uid)) continue
+    invite.run(roomId, uid, req.user.id, now)
+    added++
+  }
+  res.json({ ok: true, invited: added })
 })
 
 // Delete a private channel (owner only)
