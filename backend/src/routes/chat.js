@@ -6,6 +6,36 @@ const router = Router()
 
 router.use(authMiddleware)
 
+router.get('/me', (req, res) => {
+  const u = db
+    .prepare(
+      'SELECT id, full_name, email, avatar, is_admin, created_at FROM users WHERE id = ?',
+    )
+    .get(req.user.id)
+  if (!u) return res.status(404).json({ error: 'Not found' })
+  res.json(u)
+})
+
+router.patch('/me', (req, res) => {
+  const { full_name, email } = req.body || {}
+  if (!full_name?.trim() || !email?.trim()) {
+    return res.status(400).json({ error: 'Name and email required' })
+  }
+  const dup = db
+    .prepare('SELECT id FROM users WHERE email = ? AND id != ?')
+    .get(email.trim(), req.user.id)
+  if (dup) return res.status(409).json({ error: 'Email already in use' })
+  db.prepare('UPDATE users SET full_name = ?, email = ? WHERE id = ?').run(
+    full_name.trim(),
+    email.trim(),
+    req.user.id,
+  )
+  const u = db
+    .prepare('SELECT id, full_name, email, is_admin, created_at FROM users WHERE id = ?')
+    .get(req.user.id)
+  res.json(u)
+})
+
 router.get('/contacts', (req, res) => {
   const rows = db
     .prepare(
@@ -88,7 +118,7 @@ router.get('/rooms/:id/messages', (req, res) => {
   }
   const messages = db
     .prepare(
-      `SELECT m.id, m.room_id, m.body, m.created_at, m.user_id, u.full_name AS author
+      `SELECT m.id, m.room_id, m.body, m.image, m.audio, m.created_at, m.user_id, u.full_name AS author
        FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.room_id = ?

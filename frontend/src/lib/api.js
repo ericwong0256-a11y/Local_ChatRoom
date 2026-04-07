@@ -23,6 +23,8 @@ export const api = {
   forgot: (email) => request('/api/auth/forgot', { method: 'POST', body: { email } }),
   reset: (token, password) =>
     request('/api/auth/reset', { method: 'POST', body: { token, password } }),
+  me: () => request('/api/me', { auth: true }),
+  updateMe: (payload) => request('/api/me', { method: 'PATCH', body: payload, auth: true }),
   rooms: () => request('/api/rooms', { auth: true }),
   contacts: () => request('/api/contacts', { auth: true }),
   messages: (roomId) => request(`/api/rooms/${roomId}/messages`, { auth: true }),

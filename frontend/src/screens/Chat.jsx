@@ -21,7 +21,17 @@ export default function Chat({ go }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [members, setMembers] = useState([])
+  const [showMembers, setShowMembers] = useState(false)
+  const [pendingImage, setPendingImage] = useState(null)
+  const [pendingAudio, setPendingAudio] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [recordSecs, setRecordSecs] = useState(0)
   const scrollRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const recorderRef = useRef(null)
+  const recordTimerRef = useRef(null)
 
   // Load contacts (used by both contacts tab and create-channel modal)
   useEffect(() => {
@@ -52,6 +62,7 @@ export default function Chat({ go }) {
     const socket = getSocket()
 
     api.messages(activeRoom).then(setMessages).catch(() => {})
+    api.members(activeRoom).then(setMembers).catch(() => setMembers([]))
     socket.emit('room:join', activeRoom)
 
     const onNew = (msg) => {
@@ -69,9 +80,76 @@ export default function Chat({ go }) {
 
   const send = (e) => {
     e.preventDefault()
-    if (!draft.trim() || !activeRoom) return
-    getSocket().emit('message:send', { roomId: activeRoom, body: draft.trim() })
+    if ((!draft.trim() && !pendingImage && !pendingAudio) || !activeRoom) return
+    getSocket().emit('message:send', {
+      roomId: activeRoom,
+      body: draft.trim(),
+      image: pendingImage,
+      audio: pendingAudio,
+    })
     setDraft('')
+    setPendingImage(null)
+    setPendingAudio(null)
+  }
+
+  const toggleRecord = async () => {
+    if (recording) {
+      recorderRef.current?.stop()
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mime = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/ogg')
+          ? 'audio/ogg'
+          : ''
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      const chunks = []
+      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        clearInterval(recordTimerRef.current)
+        setRecording(false)
+        setRecordSecs(0)
+        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' })
+        if (blob.size === 0) return
+        if (blob.size > 5 * 1024 * 1024) {
+          alert('Recording too long (max ~5 MB).')
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = () => setPendingAudio(reader.result)
+        reader.readAsDataURL(blob)
+      }
+      recorderRef.current = rec
+      rec.start()
+      setRecording(true)
+      setRecordSecs(0)
+      recordTimerRef.current = setInterval(() => {
+        setRecordSecs((s) => {
+          if (s + 1 >= 120) {
+            // Hard cap at 2 minutes
+            rec.state === 'recording' && rec.stop()
+            return s
+          }
+          return s + 1
+        })
+      }, 1000)
+    } catch (err) {
+      alert('Microphone unavailable: ' + (err.message || err))
+    }
+  }
+
+  const onPickFile = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) return alert('Please choose an image.')
+    if (file.size > 2 * 1024 * 1024) return alert('Image must be under 2 MB.')
+    const reader = new FileReader()
+    reader.onload = () => setPendingImage(reader.result)
+    reader.readAsDataURL(file)
   }
 
   const activeRoomObj = rooms.find((r) => r.id === activeRoom)
@@ -222,10 +300,18 @@ export default function Chat({ go }) {
             <div className="font-semibold text-lg leading-tight">
               {activeRoomObj?.name || 'Select a room'}
             </div>
-            <div className="text-xs text-brand-100">live</div>
+            <button
+              onClick={() => activeRoomObj?.is_private && setShowMembers(true)}
+              className={`text-xs text-brand-100 ${
+                activeRoomObj?.is_private ? 'hover:underline cursor-pointer' : 'cursor-default'
+              }`}
+            >
+              {activeRoomObj?.is_private
+                ? `${members.length} member${members.length === 1 ? '' : 's'} • view`
+                : 'public channel'}
+            </button>
           </div>
           <button className="text-xl">🔍</button>
-          <button className="text-xl">📞</button>
           {activeRoomObj?.is_private && activeRoomObj?.owner_id === me?.id && (
             <button
               title="Delete channel"
@@ -269,7 +355,22 @@ export default function Chat({ go }) {
                         : 'bg-white text-slate-800 rounded-tl-sm'
                     }`}
                   >
-                    {m.body}
+                    {m.image && (
+                      <img
+                        src={m.image}
+                        alt=""
+                        className="block max-w-xs max-h-64 rounded-lg mb-1 cursor-pointer"
+                        onClick={() => window.open(m.image, '_blank')}
+                      />
+                    )}
+                    {m.audio && (
+                      <audio
+                        controls
+                        src={m.audio}
+                        className="block max-w-xs mb-1"
+                      />
+                    )}
+                    {m.body && <span>{m.body}</span>}
                     <span className={`ml-2 text-[10px] ${self ? 'text-brand-100' : 'text-slate-400'}`}>
                       {fmtTime(m.created_at)}
                     </span>
@@ -280,6 +381,40 @@ export default function Chat({ go }) {
           })}
         </div>
 
+        {pendingImage && (
+          <div className="px-6 pt-3">
+            <div className="inline-block relative">
+              <img src={pendingImage} alt="" className="max-h-32 rounded-lg shadow border border-slate-200" />
+              <button
+                type="button"
+                onClick={() => setPendingImage(null)}
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs shadow"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        {pendingAudio && (
+          <div className="px-6 pt-3 flex items-center gap-3">
+            <audio controls src={pendingAudio} className="max-w-xs" />
+            <button
+              type="button"
+              onClick={() => setPendingAudio(null)}
+              className="w-6 h-6 rounded-full bg-red-500 text-white text-xs shadow"
+              title="Discard recording"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {recording && (
+          <div className="px-6 pt-3 flex items-center gap-3 text-sm text-red-600">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            Recording... {String(Math.floor(recordSecs / 60)).padStart(2, '0')}:
+            {String(recordSecs % 60).padStart(2, '0')} (max 02:00)
+          </div>
+        )}
         <form onSubmit={send} className="px-6 py-4 flex items-center gap-3">
           <button type="button" className="text-2xl">😊</button>
           <input
@@ -288,15 +423,45 @@ export default function Chat({ go }) {
             placeholder="Write a message..."
             className="flex-1 px-5 py-3 rounded-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
           />
-          <button type="button" className="text-2xl">💬</button>
-          <button type="button" className="text-2xl">📎</button>
-          <button type="button" className="text-2xl">🎙️</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onPickFile}
+            className="hidden"
+          />
+          <button
+            type="button"
+            title="Attach image"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-2xl hover:scale-110 transition"
+          >
+            📎
+          </button>
+          <button
+            type="button"
+            title="Take snapshot"
+            onClick={() => setShowCamera(true)}
+            className="text-2xl hover:scale-110 transition"
+          >
+            📷
+          </button>
+          <button
+            type="button"
+            title={recording ? 'Stop recording' : 'Record voice message'}
+            onClick={toggleRecord}
+            className={`text-2xl hover:scale-110 transition ${
+              recording ? 'text-red-500 animate-pulse' : ''
+            }`}
+          >
+            {recording ? '⏹' : '🎙️'}
+          </button>
         </form>
       </main>
 
       {showCreate && (
         <CreateChannelModal
-          contacts={contacts}
+          contacts={contacts.filter((c) => c.id !== me?.id)}
           onClose={() => setShowCreate(false)}
           onCreated={(room) => {
             setShowCreate(false)
@@ -304,6 +469,123 @@ export default function Chat({ go }) {
           }}
         />
       )}
+
+      {showMembers && (
+        <MembersModal
+          room={activeRoomObj}
+          members={members}
+          ownerId={activeRoomObj?.owner_id}
+          onClose={() => setShowMembers(false)}
+        />
+      )}
+
+      {showCamera && (
+        <CameraModal
+          onClose={() => setShowCamera(false)}
+          onCapture={(dataUrl) => {
+            setPendingImage(dataUrl)
+            setShowCamera(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function CameraModal({ onClose, onCapture }) {
+  const videoRef = useRef(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let stream
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: false })
+      .then((s) => {
+        stream = s
+        if (videoRef.current) {
+          videoRef.current.srcObject = s
+          videoRef.current.play()
+        }
+      })
+      .catch((err) => setError(err.message || 'Camera unavailable'))
+    return () => {
+      stream?.getTracks().forEach((t) => t.stop())
+    }
+  }, [])
+
+  const snap = () => {
+    const video = videoRef.current
+    if (!video) return
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    onCapture(canvas.toDataURL('image/jpeg', 0.85))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-800">Take Snapshot</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+        <div className="p-4 bg-slate-900 flex items-center justify-center">
+          {error ? (
+            <p className="text-red-300 text-sm py-12">{error}</p>
+          ) : (
+            <video ref={videoRef} className="max-w-full max-h-[60vh] rounded-lg" />
+          )}
+        </div>
+        <div className="px-5 py-3 flex justify-end gap-2 bg-slate-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={snap}
+            disabled={!!error}
+            className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-60"
+          >
+            📸 Capture
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MembersModal({ room, members, ownerId, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-800">{room?.name} — Members</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+        <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+          {members.map((m) => (
+            <li key={m.id} className="px-5 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-sm font-semibold text-brand-600">
+                {m.full_name?.[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-slate-800 truncate flex items-center gap-2">
+                  {m.full_name}
+                  {m.id === ownerId && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-100 text-brand-700">
+                      owner
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 truncate">{m.email}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
