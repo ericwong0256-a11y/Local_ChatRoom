@@ -31,10 +31,13 @@ router.post('/signup', (req, res) => {
 })
 
 router.post('/signin', (req, res) => {
-  const { email, password } = req.body || {}
-  if (!email || !password) return res.status(400).json({ error: 'Missing fields' })
+  const { identifier, email, password } = req.body || {}
+  const id = (identifier || email || '').trim()
+  if (!id || !password) return res.status(400).json({ error: 'Missing fields' })
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email)
+  const user = db
+    .prepare('SELECT * FROM users WHERE email = ? OR full_name = ? COLLATE NOCASE')
+    .get(id, id)
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid credentials' })
   }

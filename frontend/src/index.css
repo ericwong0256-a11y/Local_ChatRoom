@@ -117,4 +117,47 @@ body {
   /* ---- Link text ---- */
   .link { @apply text-brand-600 hover:underline; }
   .link-danger { @apply text-red-500 hover:underline; }
+
+  /* ---- Avatars ---- */
+  .avatar { @apply rounded-full bg-brand-100 flex items-center justify-center font-semibold text-brand-600; }
+  .avatar-sm { @apply avatar w-8 h-8 text-xs; }
+  .avatar-md { @apply avatar w-9 h-9 text-sm; }
+  .avatar-lg { @apply avatar w-12 h-12 text-base; }
+  .avatar-xl { @apply avatar w-14 h-14 text-xl; }
+
+  /* ---- Chat layout ---- */
+  .chat-shell { @apply h-full flex; }
+  .chat-main { @apply flex-1 flex flex-col chat-bg; }
+  .chat-header { @apply bg-brand-600 px-6 py-3 flex items-center gap-4 text-white; }
+  .chat-header-icon { @apply text-xl hover:scale-110 transition; }
+  .chat-messages { @apply flex-1 overflow-y-auto px-8 py-6 space-y-4; }
+  .chat-composer { @apply px-6 py-4 flex items-center gap-3; }
+  .chat-composer-input {
+    @apply flex-1 px-5 py-3 rounded-full bg-white border border-slate-200
+           focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm;
+  }
+  .composer-btn { @apply text-2xl hover:scale-110 transition; }
+
+  /* ---- Sidebar ---- */
+  .sidebar { @apply w-[320px] flex flex-col border-r border-slate-200 bg-white; }
+  .sidebar-brand { @apply bg-brand-600 px-5 py-4 flex items-center gap-2; }
+  .sidebar-row { @apply w-full flex items-center gap-3 px-4 py-3 border-l-4 border-transparent hover:bg-slate-50; }
+  .sidebar-row-active { @apply bg-brand-50 border-brand-500; }
+  .sidebar-tab {
+    @apply flex-1 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700;
+  }
+  .sidebar-tab-active { @apply text-brand-600 border-b-2 border-brand-500; }
+  .sidebar-search-wrap { @apply px-4 py-3; }
+  .sidebar-search {
+    @apply w-full pl-9 pr-3 py-2 rounded-full bg-slate-100 text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-500;
+  }
+
+  /* ---- Message bubble ---- */
+  .bubble { @apply inline-block px-4 py-2 rounded-2xl text-sm shadow-sm; }
+  .bubble-self { @apply bubble bg-brand-500 text-white rounded-br-sm; }
+  .bubble-other { @apply bubble bg-white text-slate-800 rounded-tl-sm; }
+  .bubble-image { @apply block max-w-xs max-h-64 rounded-lg mb-1 cursor-pointer; }
+  .bubble-audio { @apply block max-w-xs mb-1; }
+  .bubble-time { @apply ml-2 text-[10px]; }
 }

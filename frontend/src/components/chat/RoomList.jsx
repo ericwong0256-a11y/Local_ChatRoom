@@ -1,32 +1,32 @@
-export default function RoomList({ rooms, activeRoom, onSelect }) {
+import Badge from '../ui/Badge.jsx'
+
+export default function RoomList({ rooms, activeRoom, onSelect, unread = {} }) {
   return (
     <>
-      {rooms.map((r) => (
-        <button
-          key={r.id}
-          onClick={() => onSelect(r.id)}
-          className={`w-full flex items-center gap-3 px-4 py-3 border-l-4 ${
-            activeRoom === r.id
-              ? 'bg-brand-50 border-brand-500'
-              : 'border-transparent hover:bg-slate-50'
-          }`}
-        >
-          <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-lg">
-            {r.is_private ? '🔒' : '👥'}
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
-              {r.name}
-              {r.is_private ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                  private
-                </span>
-              ) : null}
+      {rooms.map((r) => {
+        const count = unread[r.id] || 0
+        return (
+          <button
+            key={r.id}
+            onClick={() => onSelect(r.id)}
+            className={`sidebar-row ${activeRoom === r.id ? 'sidebar-row-active' : ''}`}
+          >
+            <div className="avatar-lg text-lg">{r.is_private ? '🔒' : '👥'}</div>
+            <div className="flex-1 min-w-0 text-left">
+              <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
+                {r.name}
+                {r.is_private && <Badge>private</Badge>}
+              </div>
+              <div className="text-sm text-slate-500 truncate">Tap to open</div>
             </div>
-            <div className="text-sm text-slate-500 truncate">Tap to open</div>
-          </div>
-        </button>
-      ))}
+            {count > 0 && (
+              <span className="ml-2 bg-brand-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center font-semibold">
+                {count > 99 ? '99+' : count}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </>
   )
 }

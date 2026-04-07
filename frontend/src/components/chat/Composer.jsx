@@ -37,13 +37,13 @@ export default function Composer({
         onClearImage={() => setPendingImage(null)}
         onClearAudio={() => setPendingAudio(null)}
       />
-      <form onSubmit={onSend} className="px-6 py-4 flex items-center gap-3">
-        <button type="button" className="text-2xl">😊</button>
+      <form onSubmit={onSend} className="chat-composer">
+        <button type="button" className="composer-btn">😊</button>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write a message..."
-          className="flex-1 px-5 py-3 rounded-full bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+          className="chat-composer-input"
         />
         <input
           ref={fileInputRef}
@@ -56,7 +56,7 @@ export default function Composer({
           type="button"
           title="Attach image"
           onClick={() => fileInputRef.current?.click()}
-          className="text-2xl hover:scale-110 transition"
+          className="composer-btn"
         >
           📎
         </button>
@@ -64,7 +64,7 @@ export default function Composer({
           type="button"
           title="Capture screenshot"
           onClick={onOpenScreenCapture}
-          className="text-2xl hover:scale-110 transition"
+          className="composer-btn"
         >
           📷
         </button>
@@ -72,11 +72,17 @@ export default function Composer({
           type="button"
           title={recording ? 'Stop recording' : 'Record voice message'}
           onClick={onToggleRecord}
-          className={`text-2xl hover:scale-110 transition ${
-            recording ? 'text-red-500 animate-pulse' : ''
-          }`}
+          className={`composer-btn ${recording ? 'text-red-500 animate-pulse' : ''}`}
         >
           {recording ? '⏹' : '🎙️'}
+        </button>
+        <button
+          type="submit"
+          title="Send"
+          disabled={!draft.trim() && !pendingImage && !pendingAudio}
+          className="btn-primary btn-md disabled:opacity-50"
+        >
+          Send
         </button>
       </form>
     </>

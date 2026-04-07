@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import Modal from '../ui/Modal.jsx'
 import Button from '../ui/Button.jsx'
-import Input from '../ui/Input.jsx'
 import { api } from '../../lib/api.js'
 
-export default function CreateChannelModal({ contacts, onClose, onCreated }) {
-  const [name, setName] = useState('')
+export default function InviteMoreModal({ room, contacts, members, onClose, onInvited }) {
+  const memberIds = new Set(members.map((m) => m.id))
+  const candidates = contacts.filter((c) => !memberIds.has(c.id))
   const [selected, setSelected] = useState(new Set())
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const toggle = (id) => {
     const next = new Set(selected)
@@ -17,14 +17,14 @@ export default function CreateChannelModal({ contacts, onClose, onCreated }) {
     setSelected(next)
   }
 
-  const submit = async (e) => {
-    e.preventDefault()
+  const submit = async () => {
     setError('')
-    if (!name.trim()) return setError('Channel name required')
+    if (selected.size === 0) return
     setLoading(true)
     try {
-      const room = await api.createRoom(name.trim(), Array.from(selected))
-      onCreated(room)
+      await api.inviteMore(room.id, Array.from(selected))
+      onInvited?.()
+      onClose()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -33,21 +33,17 @@ export default function CreateChannelModal({ contacts, onClose, onCreated }) {
   }
 
   return (
-    <Modal title="New Private Channel" size="md" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Channel name"
-        />
+    <Modal title={`Invite to ${room?.name}`} size="md" onClose={onClose}>
+      <div className="space-y-4">
         <div>
-          <div className="label mb-2">Invite members ({selected.size} selected)</div>
+          <div className="label mb-2">Select users ({selected.size} selected)</div>
           <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-            {contacts.length === 0 && (
-              <p className="text-xs text-slate-400 px-3 py-4 text-center">No contacts.</p>
+            {candidates.length === 0 && (
+              <p className="text-xs text-slate-400 px-3 py-4 text-center">
+                Everyone is already a member.
+              </p>
             )}
-            {contacts.map((c) => (
+            {candidates.map((c) => (
               <label
                 key={c.id}
                 className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer"
@@ -59,7 +55,9 @@ export default function CreateChannelModal({ contacts, onClose, onCreated }) {
                 />
                 <div className="avatar-sm">{c.full_name?.[0]?.toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-800 truncate">{c.full_name}</div>
+                  <div className="text-sm font-medium text-slate-800 truncate">
+                    {c.full_name}
+                  </div>
                   <div className="text-xs text-slate-500 truncate">{c.email}</div>
                 </div>
               </label>
@@ -69,11 +67,11 @@ export default function CreateChannelModal({ contacts, onClose, onCreated }) {
         {error && <p className="field-error">{error}</p>}
         <div className="flex gap-2 justify-end">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Creating...' : 'Create'}
+          <Button onClick={submit} disabled={loading || selected.size === 0}>
+            {loading ? 'Sending...' : 'Send Invites'}
           </Button>
         </div>
-      </form>
+      </div>
     </Modal>
   )
 }

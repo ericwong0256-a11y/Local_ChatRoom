@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import Modal from '../ui/Modal.jsx'
+import Button from '../ui/Button.jsx'
 
 export default function ScreenCaptureModal({ onClose, onCapture }) {
   const videoRef = useRef(null)
@@ -42,44 +44,27 @@ export default function ScreenCaptureModal({ onClose, onCapture }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-800">Capture Screenshot</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            ✕
-          </button>
-        </div>
-        <div className="p-4 bg-slate-900 flex items-center justify-center min-h-[200px]">
-          {error ? (
-            <p className="text-red-300 text-sm py-12 px-4 text-center">{error}</p>
-          ) : (
-            <video ref={videoRef} className="max-w-full max-h-[60vh] rounded-lg" muted />
-          )}
-        </div>
-        <div className="px-5 py-3 flex justify-between items-center bg-slate-50">
-          <p className="text-xs text-slate-500">
-            {ready
-              ? 'Frame your shot, then click Capture.'
-              : 'Choose a screen or window to share.'}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={snap}
-              disabled={!ready || !!error}
-              className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-60"
-            >
-              📸 Capture
-            </button>
-          </div>
-        </div>
+    <Modal
+      title="Capture Screenshot"
+      size="xl"
+      onClose={onClose}
+      footer={
+        <>
+          <span className="text-xs text-slate-500 mr-auto self-center">
+            {ready ? 'Frame your shot, then click Capture.' : 'Choose a screen or window to share.'}
+          </span>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={snap} disabled={!ready || !!error}>📸 Capture</Button>
+        </>
+      }
+    >
+      <div className="bg-slate-900 -mx-6 -my-5 p-4 flex items-center justify-center min-h-[200px]">
+        {error ? (
+          <p className="text-red-300 text-sm py-12 px-4 text-center">{error}</p>
+        ) : (
+          <video ref={videoRef} className="max-w-full max-h-[60vh] rounded-lg" muted />
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }

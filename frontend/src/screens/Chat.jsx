@@ -4,6 +4,7 @@ import { auth } from '../lib/auth.js'
 import { useRooms } from '../hooks/useRooms.js'
 import { useMessages } from '../hooks/useMessages.js'
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder.js'
+import { useNotifications } from '../hooks/useNotifications.js'
 
 import Sidebar from '../components/chat/Sidebar.jsx'
 import ChatHeader from '../components/chat/ChatHeader.jsx'
@@ -12,6 +13,9 @@ import Composer from '../components/chat/Composer.jsx'
 import CreateChannelModal from '../components/chat/CreateChannelModal.jsx'
 import MembersModal from '../components/chat/MembersModal.jsx'
 import ScreenCaptureModal from '../components/chat/ScreenCaptureModal.jsx'
+import InvitesModal from '../components/chat/InvitesModal.jsx'
+import InviteMoreModal from '../components/chat/InviteMoreModal.jsx'
+import ContactDetailModal from '../components/chat/ContactDetailModal.jsx'
 
 export default function Chat({ go }) {
   const me = auth.user()
@@ -20,6 +24,7 @@ export default function Chat({ go }) {
     onUnauthorized: () => go('signin'),
   })
   const { messages, setMessages, members, scrollRef, sendMessage } = useMessages(activeRoom)
+  const { unread } = useNotifications({ activeRoom, meId: me?.id, rooms })
 
   const [contacts, setContacts] = useState([])
   const [draft, setDraft] = useState('')
@@ -28,11 +33,20 @@ export default function Chat({ go }) {
   const [showCreate, setShowCreate] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
   const [showCapture, setShowCapture] = useState(false)
+  const [invites, setInvites] = useState([])
+  const [showInvites, setShowInvites] = useState(false)
+  const [showInviteMore, setShowInviteMore] = useState(false)
+  const [detailContact, setDetailContact] = useState(null)
+
+  const loadInvites = () => api.invites().then(setInvites).catch(() => {})
 
   const recorder = useVoiceRecorder({ onComplete: setPendingAudio })
 
   useEffect(() => {
     api.contacts().then(setContacts).catch(() => {})
+    loadInvites()
+    const t = setInterval(loadInvites, 15000)
+    return () => clearInterval(t)
   }, [])
 
   const handleSend = (e) => {
@@ -46,6 +60,32 @@ export default function Chat({ go }) {
     setDraft('')
     setPendingImage(null)
     setPendingAudio(null)
+  }
+
+  const handleSelectContact = (contact) => setDetailContact(contact)
+
+  const handleMessageContact = async (contact) => {
+    try {
+      const room = await api.openDm(contact.id)
+      setDetailContact(null)
+      loadRooms(room.id)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  const handleLeaveRoom = async () => {
+    if (!activeRoomObj) return
+    if (!confirm(`Leave "${activeRoomObj.name}"?`)) return
+    try {
+      await api.leaveRoom(activeRoomObj.id)
+      setShowMembers(false)
+      setActiveRoom(null)
+      setMessages([])
+      loadRooms()
+    } catch (err) {
+      alert(err.message)
+    }
   }
 
   const handleDeleteRoom = async () => {
@@ -62,18 +102,22 @@ export default function Chat({ go }) {
   }
 
   return (
-    <div className="h-full flex">
+    <div className="chat-shell">
       <Sidebar
         me={me}
         rooms={rooms}
         contacts={contacts}
         activeRoom={activeRoom}
         onSelectRoom={setActiveRoom}
+        onSelectContact={handleSelectContact}
         onCreateChannel={() => setShowCreate(true)}
+        onShowInvites={() => setShowInvites(true)}
+        inviteCount={invites.length}
+        unread={unread}
         go={go}
       />
 
-      <main className="flex-1 flex flex-col chat-bg">
+      <main className="chat-main">
         <ChatHeader
           room={activeRoomObj}
           members={members}
@@ -115,7 +159,33 @@ export default function Chat({ go }) {
           room={activeRoomObj}
           members={members}
           ownerId={activeRoomObj?.owner_id}
+          meId={me?.id}
           onClose={() => setShowMembers(false)}
+          onLeave={handleLeaveRoom}
+          onInviteMore={() => {
+            setShowMembers(false)
+            setShowInviteMore(true)
+          }}
+        />
+      )}
+
+      {detailContact && (
+        <ContactDetailModal
+          contact={detailContact}
+          onClose={() => setDetailContact(null)}
+          onMessage={handleMessageContact}
+        />
+      )}
+
+      {showInviteMore && activeRoomObj && (
+        <InviteMoreModal
+          room={activeRoomObj}
+          contacts={contacts}
+          members={members}
+          onClose={() => setShowInviteMore(false)}
+          onInvited={() => {
+            // Refresh members so newly-pending users don't show as already-members later
+          }}
         />
       )}
 
@@ -125,6 +195,30 @@ export default function Chat({ go }) {
           onCapture={(dataUrl) => {
             setPendingImage(dataUrl)
             setShowCapture(false)
+          }}
+        />
+      )}
+
+      {showInvites && (
+        <InvitesModal
+          invites={invites}
+          onClose={() => setShowInvites(false)}
+          onAccept={async (roomId) => {
+            try {
+              await api.acceptInvite(roomId)
+              await loadInvites()
+              loadRooms(roomId)
+            } catch (err) {
+              alert(err.message)
+            }
+          }}
+          onDecline={async (roomId) => {
+            try {
+              await api.declineInvite(roomId)
+              loadInvites()
+            } catch (err) {
+              alert(err.message)
+            }
           }}
         />
       )}
